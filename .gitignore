@@ -1,0 +1,28 @@
+# Java / Maven
+back/greennest-backend-new/target/
+*.class
+*.jar
+*.war
+
+# Eclipse / STS metadata
+back/greennest-backend-new/.settings/
+back/greennest-backend-new/.classpath
+back/greennest-backend-new/.project
+back/greennest-backend-new/.factorypath
+
+# Node / frontend
+front/greennest-frontend-new/node_modules/
+front/greennest-frontend-new/dist/
+front/greennest-frontend-new/.vite/
+
+# Env files - never commit real secrets
+.env
+*.env.local
+front/greennest-frontend-new/.env
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
