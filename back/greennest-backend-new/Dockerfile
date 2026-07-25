@@ -1,5 +1,5 @@
 # --- Build stage ---
-FROM eclipse-temurin:17-jdk-jammy AS build
+FROM eclipse-temurin:25-jdk-jammy AS build
 WORKDIR /app
 
 # Cache dependencies separately from source so code edits don't re-download the world
@@ -11,7 +11,7 @@ COPY src ./src
 RUN ./mvnw -q clean package -DskipTests
 
 # --- Runtime stage ---
-FROM eclipse-temurin:17-jre-jammy AS runtime
+FROM eclipse-temurin:25-jre-jammy AS runtime
 WORKDIR /app
 
 # Run as a non-root user - never run the JVM as root in a container
