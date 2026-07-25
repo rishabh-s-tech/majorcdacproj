@@ -1,0 +1,47 @@
+version: 2
+updates:
+  # Backend - Maven dependencies
+  - package-ecosystem: maven
+    directory: /back/greennest-backend-new
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - backend
+
+  # Frontend - npm dependencies
+  - package-ecosystem: npm
+    directory: /front/greennest-frontend-new
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - frontend
+
+  # GitHub Actions themselves (pin/patch action versions)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - ci
+
+  # Docker base images
+  - package-ecosystem: docker
+    directory: /back/greennest-backend-new
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - docker
+
+  - package-ecosystem: docker
+    directory: /front/greennest-frontend-new
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - docker

@@ -1,0 +1,61 @@
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-changeme_root}
+      MYSQL_DATABASE: greennest
+      MYSQL_USER: ${DB_USERNAME:-greennest_app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-changeme_app}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-changeme_root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - greennest
+
+  backend:
+    build:
+      context: ./back/greennest-backend-new
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/greennest
+      DB_USERNAME: ${DB_USERNAME:-greennest_app}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme_app}
+      DDL_AUTO: ${DDL_AUTO:-update}
+      SHOW_SQL: ${SHOW_SQL:-false}
+      APP_CORS_ALLOWED_ORIGIN: ${APP_CORS_ALLOWED_ORIGIN:-http://localhost:5173}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set - see .env.example}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-admin@greennest.com}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?APP_ADMIN_PASSWORD must be set - see .env.example}
+    ports:
+      - "8080:8080"
+    networks:
+      - greennest
+
+  frontend:
+    build:
+      context: ./front/greennest-frontend-new
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+    networks:
+      - greennest
+
+volumes:
+  mysql_data:
+
+networks:
+  greennest:
+    driver: bridge

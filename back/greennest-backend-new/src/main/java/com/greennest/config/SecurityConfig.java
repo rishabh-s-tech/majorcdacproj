@@ -56,6 +56,13 @@ public class SecurityConfig {
 
 				.authorizeHttpRequests(auth -> auth
 
+						// Health endpoint only - needed by Docker/orchestrator health checks.
+						// Everything else under /actuator is disabled via application.properties
+						// (management.endpoints.web.exposure.include=health), but the ADMIN-only
+						// rule below is defense-in-depth in case that ever changes.
+						.requestMatchers("/actuator/health").permitAll()
+						.requestMatchers("/actuator/**").hasRole("ADMIN")
+
 						.requestMatchers(HttpMethod.GET, "/api/plants/**", "/api/categories/**").permitAll()
 
 						// PUBLIC APIs - registration/login only. Admin registration is

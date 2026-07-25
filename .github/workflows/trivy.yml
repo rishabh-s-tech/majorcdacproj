@@ -1,0 +1,55 @@
+name: Container image scan (Trivy)
+
+on:
+  push:
+    branches: [main, rishabh]
+  pull_request:
+    branches: [main, rishabh]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: backend
+            context: back/greennest-backend-new
+            build-args: ""
+          - name: frontend
+            context: front/greennest-frontend-new
+            build-args: VITE_API_BASE_URL=/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.name }} image (loaded locally for scanning, not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          load: true
+          tags: greennest-${{ matrix.name }}:scan
+          build-args: ${{ matrix.build-args }}
+
+      - name: Scan ${{ matrix.name }} image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: greennest-${{ matrix.name }}:scan
+          format: sarif
+          output: trivy-${{ matrix.name }}.sarif
+          severity: CRITICAL,HIGH
+          # Report-only for now (exit-code 0) so CI stays green while you're iterating;
+          # flip to "1" once you want unresolved CRITICAL/HIGH findings to actually fail the build.
+          exit-code: "0"
+
+      - name: Upload results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.name }}.sarif
+          category: trivy-${{ matrix.name }}

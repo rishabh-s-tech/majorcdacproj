@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main, rishabh]
+  pull_request:
+    branches: [main, rishabh]
+
+# Cancel superseded runs on the same branch/PR to save minutes
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend build & test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: back/greennest-backend-new
+    # GreennestBackendApplicationTests uses @SpringBootTest, which boots the full
+    # context including the real MySQL datasource - so tests need an actual DB to
+    # connect to, not just compiled code.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root_password
+          MYSQL_DATABASE: greennest
+          MYSQL_USER: ci_app_user
+          MYSQL_PASSWORD: ci_app_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -pci_root_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DB_URL: jdbc:mysql://127.0.0.1:3306/greennest
+      DB_USERNAME: ci_app_user
+      DB_PASSWORD: ci_app_password
+      JWT_SECRET: ci-test-secret-not-for-production-use-only-1234567890
+      APP_ADMIN_PASSWORD: ci-test-admin-password
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Ensure mvnw is executable
+        run: chmod +x mvnw
+
+      - name: Run tests
+        run: ./mvnw -B -q clean test
+
+      - name: Package (skip tests, already ran above)
+        run: ./mvnw -B -q clean package -DskipTests
+
+      - name: Upload jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: back/greennest-backend-new/target/*.jar
+          retention-days: 7
+
+  frontend:
+    name: Frontend lint & build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: front/greennest-frontend-new
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: front/greennest-frontend-new/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: /api
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: front/greennest-frontend-new/dist
+          retention-days: 7
+
+  docker-build-check:
+    name: Docker images build
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: back/greennest-backend-new
+          push: false
+          tags: greennest-backend:ci
+
+      - name: Build frontend image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: front/greennest-frontend-new
+          push: false
+          tags: greennest-frontend:ci
+          build-args: |
+            VITE_API_BASE_URL=/api
