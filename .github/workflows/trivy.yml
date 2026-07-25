@@ -38,7 +38,7 @@ jobs:
           build-args: ${{ matrix.build-args }}
 
       - name: Scan ${{ matrix.name }} image with Trivy
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: greennest-${{ matrix.name }}:scan
           format: sarif
