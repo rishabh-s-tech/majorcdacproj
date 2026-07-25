@@ -9,6 +9,12 @@ updates:
     labels:
       - dependencies
       - backend
+    groups:
+      # jjwt-api/jjwt-impl/jjwt-jackson must always move together - they're a
+      # matched set and mixing versions across them breaks compilation.
+      jjwt:
+        patterns:
+          - "io.jsonwebtoken:*"
 
   # Frontend - npm dependencies
   - package-ecosystem: npm
