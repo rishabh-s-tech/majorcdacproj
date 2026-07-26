@@ -59,10 +59,50 @@ only to that ephemeral test run. For a real deployment, the equivalent values
 Actions secrets** (Settings → Secrets and variables → Actions) and injected at deploy
 time - never committed.
 
-## 5. Not done yet / next phases
+## 5. Deployment (Railway)
 
-- **CD (auto-deploy)**: no deployment target has been chosen yet - see chat for the
-  options discussed (PaaS vs VM vs Kubernetes).
-- **DAST** (e.g. OWASP ZAP baseline scan against a running instance) - deferred; can be
-  added once there's a deployed environment to point it at.
-- **Monitoring/observability** (Prometheus/Grafana) - optional stretch goal.
+The app is deployed on [Railway](https://railway.com) as three services inside one project:
+
+| Service | Role | URL |
+|---|---|---|
+| Backend | Spring Boot API (Docker) | https://majorcdacproj-production.up.railway.app |
+| Frontend | React SPA served by Nginx (Docker) | https://independent-dedication-production.up.railway.app |
+| MySQL | Managed database plugin | internal only, not publicly exposed |
+
+Each service builds from the same GitHub repo (`rishabh-s-tech/majorcdacproj`) using its
+own **Root Directory** setting so Railway picks the right Dockerfile:
+
+- Backend service → Root Directory `back/greennest-backend-new`
+- Frontend service → Root Directory `front/greennest-frontend-new`, with
+  `VITE_API_BASE_URL` set as a build-time variable (Railway passes matching service
+  Variables into Docker `ARG`s automatically) pointing at the backend's public URL
+  plus `/api`.
+
+Railway's managed MySQL exposes its own auto-generated credentials as variables
+(`MYSQLHOST`, `MYSQLPORT`, `MYSQLDATABASE`, `MYSQLUSER`, `MYSQLPASSWORD`). The backend
+service references these directly rather than duplicating the values, e.g.:
+
+```
+DB_URL=jdbc:mysql://${{MySQL.MYSQLHOST}}:${{MySQL.MYSQLPORT}}/${{MySQL.MYSQLDATABASE}}
+DB_USERNAME=${{MySQL.MYSQLUSER}}
+DB_PASSWORD=${{MySQL.MYSQLPASSWORD}}
+```
+
+`JWT_SECRET` and `APP_ADMIN_PASSWORD` are separate, real values set directly on the
+backend service (distinct from the ones used locally/in CI) and are never committed to
+the repo. `APP_CORS_ALLOWED_ORIGIN` on the backend is set to the frontend's public
+Railway URL so the browser's CORS check passes when the deployed frontend calls the
+deployed backend.
+
+Both services deploy automatically on every push to the connected branch (Railway
+watches the GitHub repo directly), separate from and in addition to the CI checks in
+section 2, which still gate correctness/security on every push/PR.
+
+## 6. Not done yet / next phases
+
+- **DAST** (e.g. OWASP ZAP baseline scan against the running Railway instance) -
+  deferred; can now be pointed at the live URLs above.
+- **Monitoring/observability** (Prometheus/Grafana, or Railway's built-in metrics) -
+  optional stretch goal.
+- **Custom domain** - Railway currently serves both services on `*.up.railway.app`
+  subdomains; a custom domain can be attached later via Settings → Networking.
