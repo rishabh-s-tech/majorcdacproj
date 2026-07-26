@@ -38,17 +38,25 @@ Runs on every push/PR to `main` and `rishabh`:
 
 ## 3. Security scanning
 
-Four independent, free-tier GitHub-native tools, each uploading results to the repo's
-**Security** tab (Code scanning alerts) where applicable:
+Five independent, free-tier GitHub-native tools. Between them they cover the full
+spectrum: dependency risk, source-level bugs, secrets, container CVEs, and - the only
+"shift-right" check in the list - the live running app itself.
 
-| Tool | File | What it catches |
-|---|---|---|
-| Dependabot | `.github/dependabot.yml` | Vulnerable/outdated dependencies in `pom.xml`, `package.json`, Dockerfiles, and the GitHub Actions themselves. Opens PRs automatically. |
-| CodeQL | `.github/workflows/codeql.yml` | Static analysis (SAST) across the Java and JS/JSX source for real code-level vulnerability patterns (injection, unsafe deserialization, etc). Also runs weekly on a schedule. |
-| gitleaks | `.github/workflows/gitleaks.yml` | Scans the full commit history for accidentally committed secrets (API keys, passwords, private keys). |
-| Trivy | `.github/workflows/trivy.yml` | Scans the built backend/frontend Docker images for known OS and library CVEs. Currently report-only (`exit-code: "0"`) so CI doesn't block on upstream base-image CVEs you can't immediately fix - flip to `"1"` once you're ready to gate on it. |
+| Tool | Type | File | What it catches |
+|---|---|---|---|
+| Dependabot | SCA | `.github/dependabot.yml` | Vulnerable/outdated dependencies in `pom.xml`, `package.json`, Dockerfiles, and the GitHub Actions themselves. Opens PRs automatically. |
+| CodeQL | SAST | `.github/workflows/codeql.yml` | Static analysis across the Java and JS/JSX source for real code-level vulnerability patterns (injection, unsafe deserialization, etc). Also runs weekly on a schedule. |
+| gitleaks | Secrets | `.github/workflows/gitleaks.yml` | Scans the full commit history for accidentally committed secrets (API keys, passwords, private keys). |
+| Trivy | Container | `.github/workflows/trivy.yml` | Scans the built backend/frontend Docker images for known OS and library CVEs. Runs twice: once to report everything (CRITICAL+HIGH, always uploaded to the Security tab) and once as a **gate** that fails the build only on CRITICAL findings with an available fix (`ignore-unfixed: true` - you can't block on a CVE nobody has patched yet). |
+| OWASP ZAP | DAST | `.github/workflows/dast-zap.yml` | Runs a baseline scan against the **live deployed frontend**, probing the running app for real vulnerabilities (missing security headers, cookie flags, reflected XSS patterns) the way an external attacker would. Currently report-only (`fail_action: false`); files/updates a GitHub issue with findings. Runs weekly plus on manual trigger. |
 
-All results land in **GitHub → your repo → Security → Code scanning alerts**, in one place.
+Requires one repo variable to be set for ZAP to know what to scan: **Settings → Secrets
+and variables → Actions → Variables tab** → add `DAST_TARGET_URL` =
+`https://independent-dedication-production.up.railway.app` (the live frontend URL).
+
+All static findings (Dependabot, CodeQL, gitleaks, Trivy) land in **GitHub → your repo →
+Security → Code scanning alerts**. ZAP's findings land as a GitHub issue instead, since
+that's what the action supports.
 
 ## 4. Secrets
 
@@ -98,11 +106,30 @@ Both services deploy automatically on every push to the connected branch (Railwa
 watches the GitHub repo directly), separate from and in addition to the CI checks in
 section 2, which still gate correctness/security on every push/PR.
 
-## 6. Not done yet / next phases
+## 6. Branch protection
 
-- **DAST** (e.g. OWASP ZAP baseline scan against the running Railway instance) -
-  deferred; can now be pointed at the live URLs above.
+To make the CI/security gates actually mean something, `main` should require them to
+pass before a merge is even possible - otherwise all this tooling is advisory only.
+Set this up once via **GitHub → repo → Settings → Branches → Add branch protection
+rule**:
+
+- Branch name pattern: `main`
+- Enable **Require a pull request before merging** (blocks direct pushes)
+- Enable **Require status checks to pass before merging**, and select the `backend`,
+  `frontend`, and `docker-build-check` jobs from `ci.yml`, plus the Trivy gate job from
+  `trivy.yml`
+- Optionally enable **Require approvals** (1) if you want a review step in the story too
+
+After this, a PR with a failing test, a lint error, or a CRITICAL CVE with a known fix
+physically cannot be merged to `main` - the pipeline becomes a real gate, not just a
+report.
+
+## 7. Not done yet / next phases
+
 - **Monitoring/observability** (Prometheus/Grafana, or Railway's built-in metrics) -
   optional stretch goal.
 - **Custom domain** - Railway currently serves both services on `*.up.railway.app`
   subdomains; a custom domain can be attached later via Settings → Networking.
+- **Infrastructure as code** - the Railway project is currently configured by hand
+  through its dashboard; a `railway.toml`/Terraform setup would make the infra
+  reproducible from a file instead of manual clicks.

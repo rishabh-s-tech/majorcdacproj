@@ -37,15 +37,15 @@ jobs:
           tags: greennest-${{ matrix.name }}:scan
           build-args: ${{ matrix.build-args }}
 
-      - name: Scan ${{ matrix.name }} image with Trivy
+      - name: Scan ${{ matrix.name }} image with Trivy (report, all severities)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: greennest-${{ matrix.name }}:scan
           format: sarif
           output: trivy-${{ matrix.name }}.sarif
           severity: CRITICAL,HIGH
-          # Report-only for now (exit-code 0) so CI stays green while you're iterating;
-          # flip to "1" once you want unresolved CRITICAL/HIGH findings to actually fail the build.
+          # Always report-only (exit-code 0) - this step's only job is to populate the
+          # GitHub Security tab with the full picture, never to fail the build.
           exit-code: "0"
 
       - name: Upload results to GitHub Security tab
@@ -53,3 +53,16 @@ jobs:
         with:
           sarif_file: trivy-${{ matrix.name }}.sarif
           category: trivy-${{ matrix.name }}
+
+      - name: Gate on CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: greennest-${{ matrix.name }}:scan
+          format: table
+          severity: CRITICAL
+          # This second scan is the actual gate: it re-checks the same image, only for
+          # CRITICAL findings, and fails the job if any are unresolved. Kept separate
+          # from the reporting step above so the Security tab always gets the full
+          # CRITICAL+HIGH picture even when this gate fails and blocks the merge.
+          exit-code: "1"
+          ignore-unfixed: true

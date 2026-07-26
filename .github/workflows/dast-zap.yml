@@ -1,0 +1,52 @@
+name: DAST - OWASP ZAP Baseline Scan
+
+# This is the one piece of "shift-right" security testing in the pipeline: instead of
+# analysing source code or images before they run (SAST/SCA/container scanning), this
+# actually attacks the live, deployed application the same way an external attacker
+# would - crawling pages and probing HTTP responses for real vulnerabilities (missing
+# security headers, cookie flags, XSS-prone reflections, etc).
+#
+# Runs on a schedule (not on every push) since it hits a real, live, rate-limited
+# target rather than a throwaway CI container.
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 4 * * 1" # every Monday 04:00 UTC
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  zap-baseline:
+    name: ZAP baseline scan (frontend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ZAP baseline scan against the live frontend
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          target: ${{ vars.DAST_TARGET_URL }}
+          cmd_options: "-a"
+          allow_issue_writing: true
+          issue_title: "ZAP baseline scan findings"
+          # Report-only for now, same stance as Trivy - a first scan against a real
+          # running app tends to surface findings (missing headers, cookie flags) that
+          # need triage before they should start failing builds. Flip to true once
+          # you've reviewed the first report and fixed/accepted what it finds.
+          fail_action: false
+
+      - name: Upload full ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: |
+            report_html.html
+            report_md.md
+            report_json.json
+          retention-days: 30
+          if-no-files-found: ignore
