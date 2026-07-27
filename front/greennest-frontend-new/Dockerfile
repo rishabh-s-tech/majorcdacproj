@@ -18,6 +18,12 @@ RUN npm run build
 # --- Runtime stage ---
 FROM nginx:1.27-alpine AS runtime
 
+# Force-patch OS packages at build time - don't just trust whatever was baked into
+# the base image tag when it was last pushed upstream. This is what actually fixes
+# CVEs like CVE-2026-31789 (OpenSSL/libcrypto3, CRITICAL) that Trivy's build gate
+# catches: the base image tag itself lags behind Alpine's own patched package repo.
+RUN apk update && apk upgrade --no-cache
+
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 
