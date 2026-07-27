@@ -16,7 +16,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
 # --- Runtime stage ---
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.31-alpine AS runtime
 
 # Force-patch OS packages at build time - don't just trust whatever was baked into
 # the base image tag when it was last pushed upstream. This is what actually fixes
