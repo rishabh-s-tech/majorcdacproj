@@ -1,11 +1,17 @@
 apiVersion: 1
 
 # Auto-registers Prometheus as a Grafana data source on container startup, so
-# there's no manual "Add data source" click-through needed after `docker compose up`.
+# there's no manual "Add data source" click-through needed. The URL is read from an
+# env var (Grafana provisioning supports ${VAR} expansion) rather than hardcoded,
+# since "how to reach Prometheus" is different in each environment:
+#   - local Docker Compose: http://prometheus:9090 (compose network service name)
+#   - Railway:              http://prometheus.railway.internal:9090 (Railway private
+#     networking - only works if the Prometheus service there is actually named
+#     "prometheus")
 datasources:
   - name: Prometheus
     type: prometheus
     access: proxy
-    url: http://prometheus:9090
+    url: ${GRAFANA_PROMETHEUS_URL}
     isDefault: true
     editable: true
