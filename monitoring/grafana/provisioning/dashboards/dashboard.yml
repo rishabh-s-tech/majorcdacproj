@@ -1,0 +1,10 @@
+apiVersion: 1
+
+# Tells Grafana to auto-load any dashboard JSON files found in this folder on
+# startup, so the starter dashboard below appears without manual import.
+providers:
+  - name: "GreenNest"
+    folder: ""
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards

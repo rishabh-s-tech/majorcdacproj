@@ -1,0 +1,11 @@
+apiVersion: 1
+
+# Auto-registers Prometheus as a Grafana data source on container startup, so
+# there's no manual "Add data source" click-through needed after `docker compose up`.
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true

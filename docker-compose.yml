@@ -53,8 +53,44 @@ services:
     networks:
       - greennest
 
+  # --- Monitoring stack ---
+  # Scrapes /actuator/prometheus on the backend every 15s (see monitoring/prometheus.yml).
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    restart: unless-stopped
+    depends_on:
+      - backend
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - greennest
+
+  # Dashboards over Prometheus's data. Datasource and the starter dashboard are
+  # both auto-provisioned from monitoring/grafana/provisioning/ - no manual
+  # click-through setup needed after `docker compose up`.
+  grafana:
+    image: grafana/grafana:11.4.0
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - greennest
+
 volumes:
   mysql_data:
+  prometheus_data:
+  grafana_data:
 
 networks:
   greennest:
