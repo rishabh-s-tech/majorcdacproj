@@ -106,7 +106,42 @@ Both services deploy automatically on every push to the connected branch (Railwa
 watches the GitHub repo directly), separate from and in addition to the CI checks in
 section 2, which still gate correctness/security on every push/PR.
 
-## 6. Branch protection
+## 6. Monitoring (Prometheus + Grafana)
+
+Local-only, part of `docker-compose.yml` alongside the app itself:
+
+```bash
+docker compose up --build
+```
+
+- **Prometheus**: http://localhost:9090 - runs two independent scrape jobs (config:
+  `monitoring/prometheus.yml`):
+  - `greennest-backend-local` - the Docker Compose backend container (`backend:8080`),
+    only reachable while running locally.
+  - `greennest-backend-production` - the **live Railway deployment**, scraped directly
+    over HTTPS (`majorcdacproj-production.up.railway.app`). Prometheus doesn't need to
+    run on the same network as its target, only a route to it, so this genuinely
+    monitors the real deployed app even though Prometheus itself runs locally.
+
+  Both jobs hit `/actuator/prometheus`, exposed via the `micrometer-registry-prometheus`
+  dependency and deliberately left `permitAll` in `SecurityConfig` (alongside
+  `/actuator/health`) since it only exposes JVM/HTTP metrics, not business data - the
+  rest of `/actuator` stays ADMIN-only. In a stricter production setup this would
+  additionally be restricted at the network level so only trusted scrapers can reach it,
+  not the entire public internet.
+- **Grafana**: http://localhost:3000 - login `admin` / whatever you set
+  `GRAFANA_ADMIN_PASSWORD` to in `.env`. Both the Prometheus data source and a starter
+  "GreenNest Backend" dashboard (JVM heap, HTTP request rate, CPU, uptime - each split
+  by `job` so local and production show as separate labeled lines on the same graphs)
+  are auto-provisioned from `monitoring/grafana/provisioning/` - nothing to click through
+  manually after first startup.
+
+Prometheus and Grafana themselves aren't deployed as extra Railway services, since
+running two more always-on containers purely for observability would burn through the
+trial credit for no functional gain on a project this size - running them locally while
+pointing at the live backend URL gets the same monitoring value at zero extra cost.
+
+## 7. Branch protection
 
 To make the CI/security gates actually mean something, `main` should require them to
 pass before a merge is even possible - otherwise all this tooling is advisory only.
@@ -124,10 +159,8 @@ After this, a PR with a failing test, a lint error, or a CRITICAL CVE with a kno
 physically cannot be merged to `main` - the pipeline becomes a real gate, not just a
 report.
 
-## 7. Not done yet / next phases
+## 8. Not done yet / next phases
 
-- **Monitoring/observability** (Prometheus/Grafana, or Railway's built-in metrics) -
-  optional stretch goal.
 - **Custom domain** - Railway currently serves both services on `*.up.railway.app`
   subdomains; a custom domain can be attached later via Settings → Networking.
 - **Infrastructure as code** - the Railway project is currently configured by hand

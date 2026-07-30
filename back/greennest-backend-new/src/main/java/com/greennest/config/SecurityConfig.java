@@ -56,11 +56,14 @@ public class SecurityConfig {
 
 				.authorizeHttpRequests(auth -> auth
 
-						// Health endpoint only - needed by Docker/orchestrator health checks.
-						// Everything else under /actuator is disabled via application.properties
-						// (management.endpoints.web.exposure.include=health), but the ADMIN-only
-						// rule below is defense-in-depth in case that ever changes.
-						.requestMatchers("/actuator/health").permitAll()
+						// Health + Prometheus metrics only - needed by Docker/orchestrator health
+						// checks and the Prometheus scraper respectively. Neither exposes anything
+						// sensitive (JVM/HTTP stats, no business data), unlike the rest of
+						// /actuator (env, beans, etc.) which stays ADMIN-only below. In a real
+						// production deployment this would also be restricted by network policy
+						// so only the Prometheus container/subnet can reach it, not the public
+						// internet - out of scope for this project's Docker Compose setup.
+						.requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
 						.requestMatchers("/actuator/**").hasRole("ADMIN")
 
 						.requestMatchers(HttpMethod.GET, "/api/plants/**", "/api/categories/**").permitAll()
