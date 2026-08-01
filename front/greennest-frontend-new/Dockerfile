@@ -1,5 +1,5 @@
 # --- Build stage ---
-FROM node:22-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app
 
 # Install deps first so they're cached unless package*.json actually changes
