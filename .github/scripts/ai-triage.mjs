@@ -68,7 +68,15 @@ try {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: 500 },
+      generationConfig: {
+        maxOutputTokens: 1024,
+        // Gemini 3.x models think before answering by default, and that internal
+        // reasoning is billed against maxOutputTokens — with a low budget the
+        // model can burn the whole thing thinking and get cut off mid-answer.
+        // This is a plain summarization task with no need for deep reasoning,
+        // so thinking is disabled outright rather than just raising the budget.
+        thinkingConfig: { thinkingBudget: 0 },
+      },
     }),
   });
 
