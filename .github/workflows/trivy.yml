@@ -88,5 +88,5 @@ jobs:
       - name: AI vulnerability triage
         if: always()
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: node .github/scripts/ai-triage.mjs trivy-${{ matrix.name }}.json >> $GITHUB_STEP_SUMMARY

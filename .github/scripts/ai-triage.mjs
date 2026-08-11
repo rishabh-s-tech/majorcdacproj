@@ -6,8 +6,12 @@
 // CRITICAL gate has just failed — that's exactly when a fast, readable summary
 // is most useful, before anyone has to open the raw CVE table.
 //
+// Uses the Google Gemini API (free tier via Google AI Studio — no billing
+// required, https://aistudio.google.com/apikey) rather than a paid provider,
+// so this step costs nothing to run.
+//
 // Usage: node .github/scripts/ai-triage.mjs <trivy-results.json>
-// Requires: ANTHROPIC_API_KEY env var (GitHub Actions secret)
+// Requires: GEMINI_API_KEY env var (GitHub Actions secret)
 
 import fs from "fs";
 
@@ -38,10 +42,10 @@ if (cves.length === 0) {
   process.exit(0);
 }
 
-if (!process.env.ANTHROPIC_API_KEY) {
+if (!process.env.GEMINI_API_KEY) {
   console.log("## 🤖 AI Vulnerability Triage\n");
   console.log(
-    `_Skipped: ANTHROPIC_API_KEY secret is not configured. ${cves.length} CRITICAL/HIGH finding(s) present — see the Trivy report step above for details._`
+    `_Skipped: GEMINI_API_KEY secret is not configured. ${cves.length} CRITICAL/HIGH finding(s) present — see the Trivy report step above for details._`
   );
   process.exit(0);
 }
@@ -55,18 +59,16 @@ Keep the whole response under 200 words, no fluff, markdown format, no headings 
 CVEs:
 ${JSON.stringify(cves, null, 2)}`;
 
+const MODEL = "gemini-2.5-flash";
+const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+
 try {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "x-api-key": process.env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
+    headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 500,
-      messages: [{ role: "user", content: prompt }],
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 500 },
     }),
   });
 
@@ -74,12 +76,12 @@ try {
     const errText = await res.text();
     console.log("## 🤖 AI Vulnerability Triage\n");
     console.log(`_AI summary unavailable (API error ${res.status}). ${cves.length} CRITICAL/HIGH finding(s) present — see the Trivy report step above._`);
-    console.error("Anthropic API error:", errText);
+    console.error("Gemini API error:", errText);
     process.exit(0); // advisory step — never fail the job because of this
   }
 
   const data = await res.json();
-  const summary = data.content?.[0]?.text ?? "_No summary returned._";
+  const summary = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "_No summary returned._";
 
   console.log("## 🤖 AI Vulnerability Triage\n");
   console.log(summary);
