@@ -73,9 +73,12 @@ try {
         // Gemini 3.x models think before answering by default, and that internal
         // reasoning is billed against maxOutputTokens — with a low budget the
         // model can burn the whole thing thinking and get cut off mid-answer.
-        // This is a plain summarization task with no need for deep reasoning,
-        // so thinking is disabled outright rather than just raising the budget.
-        thinkingConfig: { thinkingBudget: 0 },
+        // Gemini 3.x models control this with `thinkingLevel` ("low"/"high"),
+        // not the old Gemini 2.5 `thinkingBudget` (integer) field — sending
+        // thinkingBudget to a 3.x model causes a 400 INVALID_ARGUMENT. This is
+        // a plain summarization task with no need for deep reasoning, so we
+        // ask for the lowest thinking level to leave the budget for the answer.
+        thinkingConfig: { thinkingLevel: "low" },
       },
     }),
   });
