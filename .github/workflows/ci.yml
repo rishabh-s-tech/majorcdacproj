@@ -62,7 +62,7 @@ jobs:
         run: ./mvnw -B -q clean package -DskipTests
 
       - name: Upload jar artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-jar
           path: back/greennest-backend-new/target/*.jar
@@ -96,7 +96,7 @@ jobs:
           VITE_API_BASE_URL: /api
 
       - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-dist
           path: front/greennest-frontend-new/dist
