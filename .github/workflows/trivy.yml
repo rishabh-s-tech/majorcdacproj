@@ -25,6 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Node (for AI triage step)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -66,3 +71,22 @@ jobs:
           # CRITICAL+HIGH picture even when this gate fails and blocks the merge.
           exit-code: "1"
           ignore-unfixed: true
+
+      - name: Trivy JSON for AI summary
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: greennest-${{ matrix.name }}:scan
+          format: json
+          output: trivy-${{ matrix.name }}.json
+          severity: CRITICAL,HIGH
+          # Always report-only — this is purely input for the AI triage step below,
+          # never a gate. Runs with if: always() so it still produces a summary even
+          # when the CRITICAL gate above just failed the build.
+          exit-code: "0"
+
+      - name: AI vulnerability triage
+        if: always()
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node .github/scripts/ai-triage.mjs trivy-${{ matrix.name }}.json >> $GITHUB_STEP_SUMMARY
